@@ -1,0 +1,17 @@
+[Unit]
+Description=Protohackers problems
+
+[Service]
+WorkingDirectory=/home/service-user/protohackers.service
+ExecStart=/usr/bin/dotnet /home/service-user/protohackers.service/ProtoHackers.dll
+Restart=always
+# Restart service after 10 seconds if the dotnet service crashes:
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=dotnet-ProtoHackers
+User=service-user
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+[Install]
+WantedBy=multi-user.target
