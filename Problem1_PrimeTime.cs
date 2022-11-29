@@ -33,8 +33,8 @@ namespace ProtoHackers
             var malformed = false;
             while (!malformed)
             {
-                ReadResult result = await reader.ReadAsync();
-                ReadOnlySequence<byte> buffer = result.Buffer;
+                var result = await reader.ReadAsync();
+                var buffer = result.Buffer;
 
                 while (!malformed && TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
                 {
@@ -62,7 +62,7 @@ namespace ProtoHackers
 
         static bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line)
         {
-            SequencePosition? position = buffer.PositionOf((byte)'\n');
+            var position = buffer.PositionOf((byte)'\n');
 
             if (position == null)
             {
@@ -108,7 +108,7 @@ namespace ProtoHackers
         static bool IsPrime(long n)
         {
             if(n <= 1) return false;
-            double upperBound = Math.Sqrt(n);
+            var upperBound = Math.Sqrt(n);
             for(long i = 2; i <= upperBound; i++)
             {
                 if (n % i == 0) return false;
