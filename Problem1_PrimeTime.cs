@@ -3,7 +3,6 @@ using System.Net;
 using System.IO.Pipelines;
 using System.Text.Json;
 using System.Buffers;
-using System.Text.Unicode;
 using System.Text;
 using System.Diagnostics.CodeAnalysis;
 
@@ -31,32 +30,32 @@ namespace ProtoHackers
             await using var stream = new NetworkStream(socket, true);
             var reader = PipeReader.Create(stream);
 
-            while (true)
+            var malformed = false;
+            while (!malformed)
             {
                 ReadResult result = await reader.ReadAsync();
                 ReadOnlySequence<byte> buffer = result.Buffer;
 
-                while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
+                while (!malformed && TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
                 {
                     // Process the line.
-                    var handleResult = await HandleMessage(line, stream);
-                    if (!handleResult)
-                    {
-                        await stream.WriteAsync(Encoding.UTF8.GetBytes("malformed"));
-                        throw new Exception();
-                    }
+                    malformed = !(await HandleMessage(line, stream));
                 }
 
                 // Tell the PipeReader how much of the buffer has been consumed.
                 reader.AdvanceTo(buffer.Start, buffer.End);
 
                 // Stop reading if there's no more data coming.
-                if (result.IsCompleted)
+                if (malformed || result.IsCompleted)
                 {
                     break;
                 }
             }
 
+            if(malformed)
+            {
+                await stream.WriteAsync(Encoding.UTF8.GetBytes("malformed"));
+            }
             // Mark the PipeReader as complete.
             await reader.CompleteAsync();
         }
