@@ -22,23 +22,6 @@ public class Problem0_EchoServer
     static async Task Handle(Socket socket)
     {
         using var stream = new NetworkStream(socket, true);
-        var reader = PipeReader.Create(stream);
-
-        while (true)
-        {
-            ReadResult result = await reader.ReadAsync();
-
-            foreach (var mem in result.Buffer)
-            {
-                await stream.WriteAsync(mem);
-            }
-
-            reader.AdvanceTo(result.Buffer.End);
-
-            if (result.IsCompleted)
-            {
-                break;
-            }
-        }
+        await stream.CopyToAsync(stream);
     }
 }
