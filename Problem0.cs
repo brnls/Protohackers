@@ -15,30 +15,13 @@ public class Problem0_EchoServer
         while (true)
         {
             var socket = await listenSocket.AcceptAsync();
-            _ = Handle(socket);
+            _ = Task.Run(() => Handle(socket));
         }
     }
 
     static async Task Handle(Socket socket)
     {
         using var stream = new NetworkStream(socket, true);
-        var reader = PipeReader.Create(stream);
-
-        while (true)
-        {
-            ReadResult result = await reader.ReadAsync();
-
-            foreach (var mem in result.Buffer)
-            {
-                await stream.WriteAsync(mem);
-            }
-
-            reader.AdvanceTo(result.Buffer.End);
-
-            if (result.IsCompleted)
-            {
-                break;
-            }
-        }
+        await stream.CopyToAsync(stream);
     }
 }
