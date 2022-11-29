@@ -15,7 +15,7 @@ public class Problem0_EchoServer
         while (true)
         {
             var socket = await listenSocket.AcceptAsync();
-            _ = Handle(socket);
+            _ = Task.Run(() => Handle(socket));
         }
     }
 
