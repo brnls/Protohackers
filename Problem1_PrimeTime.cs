@@ -27,7 +27,7 @@ namespace ProtoHackers
         // largely copied from https://learn.microsoft.com/en-us/dotnet/standard/io/pipelines#pipe-basic-usage
         static async Task Handle(Socket socket)
         {
-            using var stream = new NetworkStream(socket, true);
+            await using var stream = new NetworkStream(socket, true);
             var reader = PipeReader.Create(stream);
 
             try
