@@ -34,14 +34,12 @@ namespace ProtoHackers
             {
                 while (true)
                 {
-                    Console.WriteLine("reading from pipe");
                     ReadResult result = await reader.ReadAsync();
                     ReadOnlySequence<byte> buffer = result.Buffer;
 
                     while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
                     {
                         // Process the line.
-                        Console.WriteLine("Handling message");
                         var handleResult = await HandleMessage(line, stream);
                         if (!handleResult)
                         {
@@ -65,7 +63,6 @@ namespace ProtoHackers
                 Console.WriteLine(e);
             }
 
-            Console.WriteLine("Completing request");
             // Mark the PipeReader as complete.
             await reader.CompleteAsync();
         }
@@ -89,7 +86,6 @@ namespace ProtoHackers
         static async Task<bool> HandleMessage(ReadOnlySequence<byte> message, Stream stream)
         {
             var jsonMessage = JsonDocument.Parse(message);
-            Console.WriteLine(EncodingExtensions.GetString(Encoding.UTF8, message));
 
             if (!(jsonMessage.RootElement.TryGetProperty("method", out JsonElement method) &&
                 method.ValueKind == JsonValueKind.String &&
