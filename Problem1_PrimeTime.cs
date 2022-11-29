@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Buffers;
 using System.Text.Unicode;
 using System.Text;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ProtoHackers
 {
@@ -20,7 +21,7 @@ namespace ProtoHackers
             while (true)
             {
                 var socket = await listenSocket.AcceptAsync();
-                _ = Handle(socket);
+                _ = Task.Run(() => Handle(socket));
             }
         }
 
@@ -30,37 +31,30 @@ namespace ProtoHackers
             await using var stream = new NetworkStream(socket, true);
             var reader = PipeReader.Create(stream);
 
-            try
+            while (true)
             {
-                while (true)
+                ReadResult result = await reader.ReadAsync();
+                ReadOnlySequence<byte> buffer = result.Buffer;
+
+                while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
                 {
-                    ReadResult result = await reader.ReadAsync();
-                    ReadOnlySequence<byte> buffer = result.Buffer;
-
-                    while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
+                    // Process the line.
+                    var handleResult = await HandleMessage(line, stream);
+                    if (!handleResult)
                     {
-                        // Process the line.
-                        var handleResult = await HandleMessage(line, stream);
-                        if (!handleResult)
-                        {
-                            throw new Exception();
-                        }
-                    }
-
-                    // Tell the PipeReader how much of the buffer has been consumed.
-                    reader.AdvanceTo(buffer.Start, buffer.End);
-
-                    // Stop reading if there's no more data coming.
-                    if (result.IsCompleted)
-                    {
-                        break;
+                        await stream.WriteAsync(Encoding.UTF8.GetBytes("malformed"));
+                        throw new Exception();
                     }
                 }
-            }
-            catch (Exception e) 
-            {
-                await stream.WriteAsync(Encoding.UTF8.GetBytes("malformed"));
-                Console.WriteLine(e);
+
+                // Tell the PipeReader how much of the buffer has been consumed.
+                reader.AdvanceTo(buffer.Start, buffer.End);
+
+                // Stop reading if there's no more data coming.
+                if (result.IsCompleted)
+                {
+                    break;
+                }
             }
 
             // Mark the PipeReader as complete.
@@ -85,7 +79,13 @@ namespace ProtoHackers
 
         static async Task<bool> HandleMessage(ReadOnlySequence<byte> message, Stream stream)
         {
-            var jsonMessage = JsonDocument.Parse(message);
+            static bool TryParse(ReadOnlySequence<byte> message, [NotNullWhen(true)] out JsonDocument? doc)
+            {
+                var reader = new Utf8JsonReader(message);
+                return JsonDocument.TryParseValue(ref reader, out doc);
+            }
+
+            if (!TryParse(message, out var jsonMessage)) return false;
 
             if (!(jsonMessage.RootElement.TryGetProperty("method", out JsonElement method) &&
                 method.ValueKind == JsonValueKind.String &&
