@@ -37,7 +37,7 @@ public class Problem2_MeansToAnEnd
             }
             else if (requestBuffer[0] == (byte)'Q')
             {
-                prices = prices.OrderBy(x => x.Timestamp).ToList();
+                prices.Sort((a, b) => a.Timestamp - b.Timestamp);
                 var query = ParseQuery(requestBuffer.AsSpan(1));
                 var average = GetAverage(prices, query);
 
