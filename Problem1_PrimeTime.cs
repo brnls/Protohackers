@@ -52,7 +52,7 @@ namespace ProtoHackers
                 }
             }
 
-            if(malformed)
+            if (malformed)
             {
                 await stream.WriteAsync(Encoding.UTF8.GetBytes("malformed"));
             }
@@ -107,9 +107,9 @@ namespace ProtoHackers
 
         static bool IsPrime(long n)
         {
-            if(n <= 1) return false;
+            if (n <= 1) return false;
             var upperBound = Math.Sqrt(n);
-            for(long i = 2; i <= upperBound; i++)
+            for (long i = 2; i <= upperBound; i++)
             {
                 if (n % i == 0) return false;
             }
