@@ -30,28 +30,23 @@ public class Problem2_MeansToAnEnd
         while (true)
         {
             await stream.ReadExactlyAsync(requestBuffer);
-            Console.WriteLine($"received {Convert.ToHexString(requestBuffer)}");
             if (requestBuffer[0] == (byte)'I')
             {
                 var historicalPrice = ParseHistoricalPrice(requestBuffer.AsSpan(1));
-                Console.WriteLine($"Parsed price {historicalPrice}");
                 prices.Add(historicalPrice);
             }
             else if (requestBuffer[0] == (byte)'Q')
             {
                 prices = prices.OrderBy(x => x.Timestamp).ToList();
                 var query = ParseQuery(requestBuffer.AsSpan(1));
-                Console.WriteLine($"Parsed query {query}");
                 var average = GetAverage(prices, query);
 
-                Console.WriteLine($"Got average {average}");
                 BitConverter.TryWriteBytes(responseBuffer, (int)Math.Floor(average));
                 BinaryPrimitives.WriteInt32BigEndian(responseBuffer, (int)Math.Floor(average));
                 await stream.WriteAsync(responseBuffer);
             }
             else break;
         }
-        Console.WriteLine($"Finishing request");
     }
 
     private static double GetAverage(List<HistoricalPrice> prices, Query query)
