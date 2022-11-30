@@ -41,7 +41,6 @@ public class Problem2_MeansToAnEnd
                 var query = ParseQuery(requestBuffer.AsSpan(1));
                 var average = GetAverage(prices, query);
 
-                BitConverter.TryWriteBytes(responseBuffer, (int)Math.Floor(average));
                 BinaryPrimitives.WriteInt32BigEndian(responseBuffer, (int)Math.Floor(average));
                 await stream.WriteAsync(responseBuffer);
             }
