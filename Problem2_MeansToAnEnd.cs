@@ -26,6 +26,7 @@ public class Problem2_MeansToAnEnd
         using var stream = new NetworkStream(socket, true);
         var requestBuffer = new byte[9];
         var responseBuffer = new byte[4];
+        var priceComparer = Comparer<HistoricalPrice>.Create((a, b) => a.Timestamp - b.Timestamp);
         var prices = new List<HistoricalPrice>();
         while (true)
         {
@@ -33,11 +34,16 @@ public class Problem2_MeansToAnEnd
             if (requestBuffer[0] == (byte)'I')
             {
                 var historicalPrice = ParseHistoricalPrice(requestBuffer.AsSpan(1));
-                prices.Add(historicalPrice);
+                var index = prices.BinarySearch(historicalPrice, priceComparer);
+
+                // If a price with the same timestamp is found, behavior is undefined
+                // and we can return.
+                if (index >= 0) return;
+
+                prices.Insert(~index, historicalPrice);
             }
             else if (requestBuffer[0] == (byte)'Q')
             {
-                prices.Sort((a, b) => a.Timestamp - b.Timestamp);
                 var query = ParseQuery(requestBuffer.AsSpan(1));
                 var average = GetAverage(prices, query);
 
@@ -62,20 +68,15 @@ public class Problem2_MeansToAnEnd
     static HistoricalPrice ParseHistoricalPrice(Span<byte> span)
     {
         return new HistoricalPrice(
-            Timestamp: GetInt(span[..4]),
-            Price: GetInt(span[4..8]));
+            Timestamp: BinaryPrimitives.ReadInt32BigEndian(span[..4]),
+            Price: BinaryPrimitives.ReadInt32BigEndian(span[4..8]));
     }
 
     static Query ParseQuery(Span<byte> span)
     {
         return new Query(
-            MinTime: GetInt(span[..4]),
-            MaxTime: GetInt(span[4..8]));
-    }
-
-    static int GetInt(Span<byte> span)
-    {
-        return BinaryPrimitives.ReadInt32BigEndian(span);
+            MinTime: BinaryPrimitives.ReadInt32BigEndian(span[..4]),
+            MaxTime: BinaryPrimitives.ReadInt32BigEndian(span[4..8]));
     }
 
     record HistoricalPrice(int Timestamp, int Price);
