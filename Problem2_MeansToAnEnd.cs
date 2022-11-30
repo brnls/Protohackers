@@ -1,4 +1,6 @@
 ﻿namespace ProtoHackers;
+
+using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
@@ -44,7 +46,7 @@ public class Problem2_MeansToAnEnd
 
                 Console.WriteLine($"Got average {average}");
                 BitConverter.TryWriteBytes(responseBuffer, (int)Math.Floor(average));
-                Array.Reverse(responseBuffer);
+                BinaryPrimitives.WriteInt32BigEndian(responseBuffer, (int)Math.Floor(average));
                 await stream.WriteAsync(responseBuffer);
             }
             else break;
@@ -79,8 +81,7 @@ public class Problem2_MeansToAnEnd
 
     static int GetInt(Span<byte> span)
     {
-        span.Reverse();
-        return BitConverter.ToInt32(span);
+        return BinaryPrimitives.ReadInt32BigEndian(span);
     }
 
     record HistoricalPrice(int Timestamp, int Price);
