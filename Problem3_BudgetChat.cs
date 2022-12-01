@@ -163,21 +163,6 @@ public class Problem3_BudgetChat
             await stream.WriteAsync(Encoding.UTF8.GetBytes(message));
             stream.WriteByte((byte)'\n');
         }
-
-        static bool TryReadLine(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> line)
-        {
-            var position = buffer.PositionOf((byte)'\n');
-
-            if (position == null)
-            {
-                line = default;
-                return false;
-            }
-
-            line = buffer.Slice(0, position.Value);
-            buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
-            return true;
-        }
     }
 
     record User(string ConnectionId, string Username);
