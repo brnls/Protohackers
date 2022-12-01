@@ -35,24 +35,24 @@ public class Problem3_BudgetChat
     private static async Task Handle(Socket socket, ConnectionHandler handler)
     {
         var stream = new NetworkStream(socket, true);
-        await stream.WriteAsync(Encoding.UTF8.GetBytes($"Welcome! What is your name?\n"));
+        await stream.WriteAsync(Encoding.ASCII.GetBytes($"Welcome! What is your name?\n"));
         var nameBuffer = new byte[17];
         await stream.ReadAsync(nameBuffer);
         var endIndex = Array.FindIndex(nameBuffer, x => x == (byte)'\n');
 
         static async Task InvalidName(NetworkStream stream)
         {
-            await stream.WriteAsync(Encoding.UTF8.GetBytes($"Invalid name\n"));
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Invalid name\n"));
             stream.Close();
         }
 
-        Console.WriteLine($"Getting name {Encoding.UTF8.GetString(nameBuffer)}");
+        Console.WriteLine($"Getting name {Encoding.ASCII.GetString(nameBuffer)}");
         if (endIndex == -1)
         {
             await InvalidName(stream);
             return;
         }
-        var name = Encoding.UTF8.GetString(nameBuffer.AsMemory(0, endIndex).Span);
+        var name = Encoding.ASCII.GetString(nameBuffer.AsMemory(0, endIndex).Span);
 
         if (!UserNameRegex.IsMatch(name))
         {
@@ -127,7 +127,7 @@ public class Problem3_BudgetChat
             await _messagesChannel.Writer.WriteAsync(new UserJoined(user));
             try
             {
-                using var sr = new StreamReader(stream, Encoding.UTF8);
+                using var sr = new StreamReader(stream, Encoding.ASCII);
                 while((await sr.ReadLineAsync()) is string msg) 
                 { 
                     await _messagesChannel.Writer.WriteAsync(new UserMessage( user, msg));
@@ -160,7 +160,7 @@ public class Problem3_BudgetChat
 
         private static async Task WriteMessage(NetworkStream stream, string message)
         {
-            await stream.WriteAsync(Encoding.UTF8.GetBytes(message));
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(message));
             stream.WriteByte((byte)'\n');
         }
     }
