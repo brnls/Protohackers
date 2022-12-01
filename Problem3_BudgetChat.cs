@@ -127,27 +127,11 @@ public class Problem3_BudgetChat
             await _messagesChannel.Writer.WriteAsync(new UserJoined(user));
             try
             {
-                var reader = PipeReader.Create(stream);
-                while (true)
-                {
-                    var result = await reader.ReadAsync();
-                    var buffer = result.Buffer;
-
-                    while (TryReadLine(ref buffer, out ReadOnlySequence<byte> line))
-                    {
-                        await _messagesChannel.Writer.WriteAsync(
-                            new UserMessage(
-                                user,
-                                EncodingExtensions.GetString(Encoding.UTF8, line)));
-                    }
-
-                    reader.AdvanceTo(buffer.Start, buffer.End);
-                    if(result.IsCompleted)
-                    {
-                        break;
-                    }
+                using var sr = new StreamReader(stream, Encoding.UTF8);
+                while((await sr.ReadLineAsync()) is string msg) 
+                { 
+                    await _messagesChannel.Writer.WriteAsync(new UserMessage( user, msg));
                 }
-                await reader.CompleteAsync();
             }
             catch (Exception e)
             {
