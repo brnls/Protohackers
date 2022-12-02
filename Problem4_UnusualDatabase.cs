@@ -24,15 +24,13 @@ class Problem4_UnusualDatabase
             if(equalIndex == -1) // query by key
             {
                 var exists = kvpStore.TryGetValue(messageBuffer, out var value);
-                if(exists)
+                if (exists)
                 {
                     await client.Client.SendToAsync(value, SocketFlags.None, result.RemoteEndPoint);
                 }
                 else
                 {
-                    var response= new byte[messageBuffer.Length + 1];
-                    messageBuffer.CopyTo(response);
-                    response[^-1] = (byte)'=';
+                    throw new Exception("this branch isn't hit?");
                 }
             }
             else // insert key/value
