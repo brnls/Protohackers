@@ -1,15 +1,11 @@
-﻿namespace ProtoHackers;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Net;
-using System.Threading.Tasks;
-using System;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using System.Collections.Concurrent;
-using System.Buffers;
-using System.IO.Pipelines;
 
+namespace ProtoHackers;
 public class Problem3_BudgetChat
 {
     public static async Task Init(int port)
@@ -19,142 +15,94 @@ public class Problem3_BudgetChat
 
         listenSocket.Listen();
 
-        var connectionHandler = new ConnectionHandler();
-        var chatServer = new ChatServer(connectionHandler);
-        _ = Task.Run(chatServer.HandleMessages);
+        var chatServer = new ChatServer();
+        _ = Task.Run(chatServer.Start);
 
         while (true)
         {
             var socket = await listenSocket.AcceptAsync();
-            _ = Task.Run(() => Handle(socket, connectionHandler));
+            _ = Task.Run(() => chatServer.AddConnection(socket));
         }
     }
-
-    static Regex UserNameRegex = new Regex("^[a-zA-Z0-9]*$");
-
-    private static async Task Handle(Socket socket, ConnectionHandler handler)
-    {
-        var stream = new NetworkStream(socket, true);
-        await stream.WriteAsync(Encoding.ASCII.GetBytes($"Welcome! What is your name?\n"));
-        var nameBuffer = new byte[17];
-        await stream.ReadAsync(nameBuffer);
-        var endIndex = Array.FindIndex(nameBuffer, x => x == (byte)'\n');
-
-        static async Task InvalidName(NetworkStream stream)
-        {
-            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Invalid name\n"));
-            stream.Close();
-        }
-
-        Console.WriteLine($"Getting name {Encoding.ASCII.GetString(nameBuffer)}");
-        if (endIndex == -1)
-        {
-            await InvalidName(stream);
-            return;
-        }
-        var name = Encoding.ASCII.GetString(nameBuffer.AsMemory(0, endIndex).Span);
-
-        if (!UserNameRegex.IsMatch(name))
-        {
-            await InvalidName(stream);
-            return;
-        }
-
-        handler.AddConnection(name, stream);
-    }
-
 
     class ChatServer
     {
-        private readonly ConnectionHandler _handler;
+        private static Regex UserNameRegex = new("^[a-zA-Z0-9]*$");
+        private Channel<object> _messagesChannel = Channel.CreateBounded<object>(100);
+        private ConcurrentDictionary<string, User> UserConnections = new();
 
-        public ChatServer(ConnectionHandler handler)
+        public async Task Start()
         {
-            _handler = handler;
-        }
-
-        public async Task HandleMessages()
-        {
-            await foreach(var message in _handler.Messages)
+            await foreach (var message in _messagesChannel.Reader.ReadAllAsync())
             {
                 try
                 {
                     Console.WriteLine($"Processing {message}");
                     if (message is UserLeft u)
                     {
-                        await _handler.SendAllBut(u.User, $"* {u.User.Username} has left the room");
+                        await Broadcast(u.User.ConnectionId, $"* {u.User.Username} has left the room");
                     }
                     else if (message is UserJoined j)
                     {
-                        var userList = _handler.Users.Where(x => x.Username != j.User.Username).Select(x => x.Username);
-                        var broadcastJoinedTask = _handler.SendAllBut(j.User, $"* {j.User.Username} has joined the room");
-                        var listUsersTask = _handler.Send(
-                            j.User,
-                            $"* The room contains: {string.Join(",", userList)}");
-                        await Task.WhenAll(broadcastJoinedTask, listUsersTask);
+                        var userList = UserConnections.Values.Where(x => x.Username != j.User.Username).Select(x => x.Username);
+                        await Task.WhenAll(
+                            Broadcast(j.User.ConnectionId, $"* {j.User.Username} has joined the room"),
+                            Send( j.User.ConnectionId, $"* The room contains: {string.Join(",", userList)}"));
                     }
                     else if (message is UserMessage m)
                     {
-                        await _handler.SendAllBut(m.User, $"[{m.User.Username}] {m.Message}");
+                        await Broadcast(m.User.ConnectionId, $"[{m.User.Username}] {m.Message}");
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine($"Error in chat server loop: {ex}");
                     await Task.Delay(5000);
                 }
             }
         }
-    }
 
-    class ConnectionHandler
-    {
-        private Channel<object> _messagesChannel = Channel.CreateBounded<object>(100);
-        private ConcurrentDictionary<User, NetworkStream> UserConnections = new();
-
-        public IAsyncEnumerable<object> Messages => _messagesChannel.Reader.ReadAllAsync();
-        public IEnumerable<User> Users => UserConnections.Keys;
-
-        public void AddConnection(string userName, NetworkStream stream)
+        public async Task AddConnection(Socket socket)
         {
-            var user = new User(Guid.NewGuid().ToString("D"), userName);
-            UserConnections.TryAdd(user, stream);
-            _ = Task.Run(() => HandleUserInput(user, stream));
-        }
+            await using var stream = new NetworkStream(socket, true);
+            using var sr = new StreamReader(stream, Encoding.ASCII);
+            await stream.WriteAsync(Encoding.ASCII.GetBytes($"Welcome! What is your name?\n"));
+            var name = await sr.ReadLineAsync();
 
-        private async Task HandleUserInput(User user, NetworkStream stream)
-        {
-            await _messagesChannel.Writer.WriteAsync(new UserJoined(user));
+            if (!(name is string s && UserNameRegex.IsMatch(s)))
+            {
+                await stream.WriteAsync(Encoding.ASCII.GetBytes($"Invalid name\n"));
+                return;
+            }
+
+            var user = new User(Guid.NewGuid().ToString("D"), name, stream);
             try
             {
-                using var sr = new StreamReader(stream, Encoding.ASCII);
-                while((await sr.ReadLineAsync()) is string msg) 
-                { 
-                    await _messagesChannel.Writer.WriteAsync(new UserMessage( user, msg));
+                UserConnections.TryAdd(user.ConnectionId, user);
+
+                await _messagesChannel.Writer.WriteAsync(new UserJoined(user));
+                while ((await sr.ReadLineAsync()) is string msg)
+                {
+                    await _messagesChannel.Writer.WriteAsync(new UserMessage(user, msg));
                 }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Error handling user {user.Username}: {e}");
             }
             finally
             {
-                UserConnections.TryRemove(user, out _);
+                UserConnections.TryRemove(user.ConnectionId, out _);
                 _messagesChannel.Writer.TryWrite(new UserLeft(user));
-                stream.Dispose();
             }
         }
 
-        public async Task Send(User user, string message)
+        public async Task Send(string fromUserId, string message)
         {
-            if(!UserConnections.TryGetValue(user, out var stream)) return;
-            await WriteMessage(stream, message);
+            if (!UserConnections.TryGetValue(fromUserId, out var user)) return;
+            await WriteMessage(user.stream, message);
         }
 
-        public async Task SendAllBut(User user, string message)
+        public async Task Broadcast(string fromUserId, string message)
         {
-            await Task.WhenAll(UserConnections.Where(x => x.Key != user).Select(x => Task.Run(() =>
-                WriteMessage(x.Value, message)
+            await Task.WhenAll(UserConnections.Where(x => x.Key != fromUserId).Select(x => Task.Run(() =>
+                WriteMessage(x.Value.stream, message)
             )));
         }
 
@@ -165,7 +113,7 @@ public class Problem3_BudgetChat
         }
     }
 
-    record User(string ConnectionId, string Username);
+    record User(string ConnectionId, string Username, NetworkStream stream);
     record UserJoined(User User);
     record UserLeft(User User);
     record UserMessage(User User, string Message);
