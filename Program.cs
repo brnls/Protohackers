@@ -1,3 +1,3 @@
 using ProtoHackers;
 
-await Problem2_MeansToAnEnd.Init(5011);
+await Problem3_BudgetChat.Init(5011);
