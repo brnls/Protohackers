@@ -27,12 +27,11 @@ public class Problem5_MobInTheMiddle
 
     static async Task Handle(Socket socket)
     {
-        using var clientStream = new NetworkStream(socket);
+        using var clientToServerStream = new NetworkStream(socket);
         using var client = new TcpClient("chat.protohackers.com", 16963);
-        using var serverStream = client.GetStream();
-        async Task ReplaceAddress(string direction, Stream sourceStream, Stream destinationStream)
+        using var serverToClientStream = client.GetStream();
+        async Task ReplaceAddress(Stream sourceStream, Stream destinationStream)
         {
-            using var sr = new StreamReader(sourceStream);
             await foreach(var message in GetMessages(sourceStream))
             {
                 await destinationStream.WriteAsync(Encoding.ASCII.GetBytes(BoguscoinRegex.Replace(message, "7YWHMfk9JZe0LM0g1ZauHuiSxhI")));
@@ -40,8 +39,8 @@ public class Problem5_MobInTheMiddle
         }
 
         await Task.WhenAny(
-            Task.Run(() => ReplaceAddress("Client to server", clientStream, serverStream)),
-            Task.Run(() => ReplaceAddress("Server to client", serverStream, clientStream)));
+            Task.Run(() => ReplaceAddress(clientToServerStream, serverToClientStream)),
+            Task.Run(() => ReplaceAddress(serverToClientStream, clientToServerStream)));
     }
 
     // Would like to have used StreamReader here but the protocol requires a new line after every message
