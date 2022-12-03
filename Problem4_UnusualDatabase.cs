@@ -30,14 +30,14 @@ class Problem4_UnusualDatabase
                 }
                 else
                 {
-                    throw new Exception("this branch isn't hit?");
+                    throw new Exception("this is never hit");
                 }
             }
             else // insert key/value
             {
                 if (messageBuffer[..equalIndex].Span.SequenceEqual("version"u8)) continue;
-                var kvp = messageBuffer.ToArray().AsMemory();
-                kvpStore[kvp[..equalIndex]] = kvp;
+                var messageBufferCopy = messageBuffer.ToArray().AsMemory();
+                kvpStore[messageBufferCopy[..equalIndex]] = messageBufferCopy;
             }
         }
     }
@@ -52,6 +52,27 @@ class Problem4_UnusualDatabase
             var hash = new HashCode();
             hash.AddBytes(obj.Span);
             return hash.ToHashCode();
+        }
+    }
+
+    public static async Task InitTestClient(int serverPort)
+    {
+        try
+        {
+            int port = 5010;
+            using var client = new UdpClient(port);
+            IPEndPoint groupEp = new IPEndPoint(IPAddress.Any, port);
+            client.Connect("127.0.0.1", serverPort);
+            await Task.Delay(2000);
+            while (true)
+            {
+                Console.WriteLine("sending");
+                await client.SendAsync("test"u8.ToArray());
+                await Task.Delay(2000);
+            }
+        }
+        catch(Exception ex) { 
+            Console.WriteLine(ex.ToString());
         }
     }
 }
