@@ -54,7 +54,7 @@ class Client : IClient, IDisposable
     {
         try
         {
-            await foreach (var message in Serialization.GetRequests(_reader, cts.Token))
+            await foreach (var message in Serialization.ReadRequests(_reader, cts.Token))
             {
                 if (message is WantHeartbeat w)
                 {

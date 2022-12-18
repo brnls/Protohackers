@@ -8,7 +8,7 @@ namespace ProtoHackers.Problem6_SpeedDaemon;
 
 class Serialization
 {
-    public static async IAsyncEnumerable<object> GetRequests(PipeReader pipe, [EnumeratorCancellation] CancellationToken token)
+    public static async IAsyncEnumerable<object> ReadRequests(PipeReader pipe, [EnumeratorCancellation] CancellationToken token)
     {
         while (true)
         {
@@ -30,34 +30,26 @@ class Serialization
 
     public static void Write(Ticket ticket, IBufferWriter<byte> writer)
     {
-        var messageSize = 1 + ticket.Plate.Length + 1 + 16;
-        var span = writer.GetSpan(messageSize);
-        span[0] = 0x21;
-        span[1] = (byte)ticket.Plate.Length;
-        int index = 2;
-        Encoding.ASCII.GetBytes(ticket.Plate, span[index..]);
-        index = index + ticket.Plate.Length;
-        BinaryPrimitives.WriteInt16BigEndian(span[index..], (short)ticket.Road);
-        index = index + 2;
-        BinaryPrimitives.WriteInt16BigEndian(span[index..], (short)ticket.Mile1);
-        index = index + 2;
-        BinaryPrimitives.WriteInt32BigEndian(span[index..], (int)ticket.Timestamp1);
-        index = index + 4;
-        BinaryPrimitives.WriteInt16BigEndian(span[index..], (short)ticket.Mile2);
-        index = index + 2;
-        BinaryPrimitives.WriteInt32BigEndian(span[index..], (int)ticket.Timestamp2);
-        index = index + 4;
-        BinaryPrimitives.WriteInt16BigEndian(span[index..], (short)ticket.Speed);
-        writer.Advance(messageSize);
+        int msgLength = 1 + ticket.Plate.Length + 1 + 16;
+        var span = writer.GetSpan(msgLength);
+        Write(ref span, 0x21);
+        Write(ref span, ticket.Plate);
+        Write(ref span, ticket.Road);
+        Write(ref span, ticket.Mile1);
+        Write(ref span, ticket.Timestamp1);
+        Write(ref span, ticket.Mile2);
+        Write(ref span, ticket.Timestamp2);
+        Write(ref span, ticket.Speed);
+        writer.Advance(msgLength);
     }
 
     public static void Write(Error error, IBufferWriter<byte> writer)
     {
-        Span<byte> span = stackalloc byte[2];
-        span[0] = 0x10;
-        span[1] = (byte)error.Msg.Length;
-        writer.Write(span);
-        Encoding.ASCII.GetBytes(error.Msg, writer);
+        var msgLength = 1 + 1 + error.Msg.Length;
+        var span = writer.GetSpan(msgLength);
+        Write(ref span, 0x10);
+        Write(ref span, error.Msg);
+        writer.Advance(msgLength);
     }
 
     public static void Write(Heartbeat _, IBufferWriter<byte> writer)
@@ -65,11 +57,36 @@ class Serialization
         writer.Write(Heartbeat.Span);
     }
 
+    private static void Write(ref Span<byte> span, byte value)
+    {
+        span[0] = value;
+        span = span[1..];
+    }
+
+    private static void Write(ref Span<byte> span, ushort value)
+    {
+        BinaryPrimitives.WriteInt16BigEndian(span, (short)value);
+        span = span[2..];
+    }
+
+    private static void Write(ref Span<byte> span, uint value)
+    {
+        BinaryPrimitives.WriteInt32BigEndian(span, (int)value);
+        span = span[4..];
+    }
+
+    private static void Write(ref Span<byte> span, string value)
+    {
+        span[0] = (byte)value.Length;
+        Encoding.ASCII.GetBytes(value, span[1..]);
+        span = span[(value.Length + 1)..];
+    }
+
     private static object? TryReadRequestFromSequence(ref ReadOnlySequence<byte> buffer)
     {
         var reader = new SequenceReader<byte>(buffer);
         var result = TryReadRequest(ref reader);
-        if(result != null)
+        if (result != null)
         {
             buffer = buffer.Slice(reader.Position);
         }
