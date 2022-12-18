@@ -6,12 +6,6 @@ interface IClient
     public object ClientInfo { get; }
 }
 
-enum ClientType
-{
-    Camera,
-    Dispatcher
-}
-
 //Client -> Server messages
 record Plate(string Value, uint Timestamp);
 record WantHeartbeat(uint Interval);

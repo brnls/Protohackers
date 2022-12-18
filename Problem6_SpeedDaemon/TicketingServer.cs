@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 
 namespace ProtoHackers.Problem6_SpeedDaemon;
 
@@ -20,9 +19,6 @@ class TicketingServer
     {
         await foreach (var message in _messageReader.ReadAllAsync())
         {
-            //var options = new JsonSerializerOptions() { WriteIndented = true };
-            //Console.WriteLine(JsonSerializer.Serialize(message, options));
-
             if (message is Connect c)
             {
                 _clients.Add(c.Client);
@@ -52,17 +48,17 @@ class TicketingServer
                 // compare with the plate observation previous to this one
                 if (insertIndex != 0)
                 {
-                    var first = observations[insertIndex - 1];
-                    var second = observations[insertIndex];
-                    EvaluateForTicket(p, first.timestamp, first.mile, second.timestamp, second.mile);
+                    var (firstTimestamp, firstMile) = observations[insertIndex - 1];
+                    var (secondTimestamp, secondMile) = observations[insertIndex];
+                    EvaluateForTicket(p, firstTimestamp, firstMile, secondTimestamp, secondMile);
                 }
 
                 // compare with the plate observation after this one
                 if (observations.Count > insertIndex + 1)
                 {
-                    var first = observations[insertIndex];
-                    var second = observations[insertIndex + 1];
-                    EvaluateForTicket(p, first.timestamp, first.mile, second.timestamp, second.mile);
+                    var (firstTimestamp, firstMile) = observations[insertIndex];
+                    var (secondTimestamp, secondMile) = observations[insertIndex + 1];
+                    EvaluateForTicket(p, firstTimestamp, firstMile, secondTimestamp, secondMile);
                 }
             }
 
@@ -70,7 +66,12 @@ class TicketingServer
         }
     }
 
-    private void EvaluateForTicket(PlateObserved p, uint firstTimestamp, ushort firstMile, uint secondTimestamp, ushort secondMile)
+    private void EvaluateForTicket(
+        PlateObserved p,
+        uint firstTimestamp,
+        ushort firstMile,
+        uint secondTimestamp,
+        ushort secondMile)
     {
         var totalSeconds = secondTimestamp - firstTimestamp;
         var totalMiles = Math.Abs(secondMile - firstMile);
