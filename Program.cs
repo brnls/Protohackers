@@ -1,3 +1,1 @@
-using ProtoHackers;
-
-await Problem5_MobInTheMiddle.Init(5011);
+await ProtoHackers.Problem6_SpeedDaemon.Problem.Init(5011);
